@@ -1,0 +1,73 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install PyQt5 Pillow pillow-heif pyinstaller
+
+    - name: Build executable
+      run: |
+        pyinstaller --noconfirm --onefile --windowed --name "picsort" --hidden-import pillow_heif photo_organizer_v5.py
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: picsort-windows
+        path: dist/picsort.exe
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: picsort-windows
+        path: .
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: picsort.exe
+        body: |
+          📷 **picsort v${{ github.ref_name }}**
+
+          **Features:**
+          - Automatically sort photos and videos by capture date
+          - Customizable directory structure (Year/Month/Day)
+          - Real-time path preview
+          - EXIF metadata reading for photos
+          - MP4/MOV metadata reading for videos
+          - Safe file handling (no overwrite, no deletion)
+          - Auto clean empty folders
+
+          **Supported Formats:**
+          - Photos: JPG, JPEG, PNG, HEIC, WEBP, GIF
+          - Videos: MP4, MOV, M4V, AVI, FLV, WMV, 3GP
+
+          **Download:**
+          - `picsort.exe` - Windows executable
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
